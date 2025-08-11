@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <conio.h> 
+#include <conio.h>
 
 #define LARGURA 20
 #define ALTURA 10
@@ -11,15 +11,15 @@ typedef struct Segmento {
     struct Segmento* proximo;
 } Segmento;
 
-// Direções
 enum Direcao { CIMA, BAIXO, ESQUERDA, DIREITA };
 
-// Funções
+// FunÃ§Ãµes
 void inicializarMapa(char mapa[ALTURA][LARGURA]);
 void imprimirMapa(char mapa[ALTURA][LARGURA]);
-void colocarComida(char mapa[ALTURA][LARGURA]);
-int verificarColisao(Segmento* cabeca, char mapa[ALTURA][LARGURA]);
+void colocarComida(char mapa[ALTURA][LARGURA], int* comidaX, int* comidaY, Segmento* corpo);
+void atualizarMapa(char mapa[ALTURA][LARGURA], Segmento* corpo, int comidaX, int comidaY);
 void moverCentopeia(Segmento** cabeca, enum Direcao dir, int* crescer);
+int verificarColisao(Segmento* cabeca);
 int verificarColisaoCorpo(Segmento* cabeca);
 
 int main() {
@@ -27,6 +27,7 @@ int main() {
     enum Direcao direcao = DIREITA;
     int fimDeJogo = 0;
     int crescer = 0;
+    int comidaX, comidaY;
 
     srand(time(NULL));
 
@@ -35,8 +36,7 @@ int main() {
     cabeca->y = ALTURA / 2;
     cabeca->proximo = NULL;
 
-    inicializarMapa(mapa);
-    colocarComida(mapa);
+    colocarComida(mapa, &comidaX, &comidaY, cabeca);
 
     while (!fimDeJogo) {
         if (_kbhit()) {
@@ -49,31 +49,19 @@ int main() {
 
         moverCentopeia(&cabeca, direcao, &crescer);
 
-        if (verificarColisao(cabeca, mapa) || verificarColisaoCorpo(cabeca)) {
+        if (verificarColisao(cabeca) || verificarColisaoCorpo(cabeca)) {
             fimDeJogo = 1;
             break;
         }
 
-        if (mapa[cabeca->y][cabeca->x] == '*') {
+        if (cabeca->x == comidaX && cabeca->y == comidaY) {
             crescer = 1;
-            mapa[cabeca->y][cabeca->x] = ' ';
-            colocarComida(mapa);
+            colocarComida(mapa, &comidaX, &comidaY, cabeca);
         }
 
-        inicializarMapa(mapa);
-        colocarComida(mapa);
-
-        Segmento* temp = cabeca;
-        mapa[temp->y][temp->x] = 'O';
-        temp = temp->proximo;
-        while (temp != NULL) {
-            mapa[temp->y][temp->x] = 'o';
-            temp = temp->proximo;
-        }
-
+        atualizarMapa(mapa, cabeca, comidaX, comidaY);
         system("cls");
         imprimirMapa(mapa);
-
         _sleep(200);
     }
 
@@ -89,8 +77,9 @@ int main() {
 }
 
 void inicializarMapa(char mapa[ALTURA][LARGURA]) {
-    for (int i = 0; i < ALTURA; i++) {
-        for (int j = 0; j < LARGURA; j++) {
+	int i, j;
+    for ( i = 0; i < ALTURA; i++) {
+        for ( j = 0; j < LARGURA; j++) {
             if (i == 0 || i == ALTURA - 1 || j == 0 || j == LARGURA - 1) {
                 mapa[i][j] = '#';
             } else {
@@ -101,21 +90,49 @@ void inicializarMapa(char mapa[ALTURA][LARGURA]) {
 }
 
 void imprimirMapa(char mapa[ALTURA][LARGURA]) {
-    for (int i = 0; i < ALTURA; i++) {
-        for (int j = 0; j < LARGURA; j++) {
+	int i, j;
+    for ( i = 0; i < ALTURA; i++) {
+        for ( j = 0; j < LARGURA; j++) {
             printf("%c", mapa[i][j]);
         }
         printf("\n");
     }
 }
 
-void colocarComida(char mapa[ALTURA][LARGURA]) {
+void colocarComida(char mapa[ALTURA][LARGURA], int* comidaX, int* comidaY, Segmento* corpo) {
     int x, y;
+    int ocupado;
     do {
+        ocupado = 0;
         x = rand() % (LARGURA - 2) + 1;
         y = rand() % (ALTURA - 2) + 1;
-    } while (mapa[y][x] != ' ');
-    mapa[y][x] = '*';
+
+        Segmento* temp = corpo;
+        while (temp != NULL) {
+            if (temp->x == x && temp->y == y) {
+                ocupado = 1;
+                break;
+            }
+            temp = temp->proximo;
+        }
+    } while (ocupado);
+
+    *comidaX = x;
+    *comidaY = y;
+}
+
+void atualizarMapa(char mapa[ALTURA][LARGURA], Segmento* corpo, int comidaX, int comidaY) {
+    inicializarMapa(mapa);
+
+    mapa[comidaY][comidaX] = '*';
+
+    Segmento* temp = corpo;
+    mapa[temp->y][temp->x] = 'O'; // CabeÃ§a
+    temp = temp->proximo;
+    while (temp != NULL) {
+        mapa[temp->y][temp->x] = 'o';
+        temp = temp->proximo;
+    }
 }
 
 void moverCentopeia(Segmento** cabeca, enum Direcao dir, int* crescer) {
@@ -123,9 +140,9 @@ void moverCentopeia(Segmento** cabeca, enum Direcao dir, int* crescer) {
     int novoY = (*cabeca)->y;
 
     switch (dir) {
-        case CIMA:    novoY--; break;
-        case BAIXO:   novoY++; break;
-        case ESQUERDA:novoX--; break;
+        case CIMA: novoY--; break;
+        case BAIXO: novoY++; break;
+        case ESQUERDA: novoX--; break;
         case DIREITA: novoX++; break;
     }
 
@@ -147,14 +164,11 @@ void moverCentopeia(Segmento** cabeca, enum Direcao dir, int* crescer) {
     }
 }
 
-int verificarColisao(Segmento* cabeca, char mapa[ALTURA][LARGURA]) {
-    if (cabeca->x <= 0 || cabeca->x >= LARGURA - 1 || cabeca->y <= 0 || cabeca->y >= ALTURA - 1) {
-        return 1;
-    }
-    if (mapa[cabeca->y][cabeca->x] == '#') {
-        return 1;
-    }
-    return 0;
+int verificarColisao(Segmento* cabeca) {
+    return (
+        cabeca->x <= 0 || cabeca->x >= LARGURA - 1 ||
+        cabeca->y <= 0 || cabeca->y >= ALTURA - 1
+    );
 }
 
 int verificarColisaoCorpo(Segmento* cabeca) {
@@ -167,4 +181,3 @@ int verificarColisaoCorpo(Segmento* cabeca) {
     }
     return 0;
 }
-
